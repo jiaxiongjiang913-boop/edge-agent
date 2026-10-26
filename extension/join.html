@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Edge Agent</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="join.css"></head>
+<body data-phase="initial"><main>
+<header><img src="icons/icon48.png" width="32" height="32" alt=""><span>Edge Agent</span><span id="join-badge" class="connection-chip">连接状态</span></header>
+<section class="connection-view" aria-live="polite"><div class="state-symbol"><span class="spinner"></span><svg class="success-mark" viewBox="0 0 52 52" aria-hidden="true"><path d="M14 27 23 36 39 18"/></svg><span class="pause-mark">Ⅱ</span><span class="error-mark">!</span></div>
+<h1 id="join-status">正在确认连接</h1><p id="join-detail">正在连接你的 Edge 浏览器。</p></section>
+<section class="browser-card"><div class="browser-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M7 6.5h.1M10 6.5h.1"/></svg></div><div><strong>整个 Edge 浏览器</strong><p><span id="count">—</span> 个标签页 · 支持跨页面操作</p></div><span class="connected-dot"></span></section>
+<p id="join-error" role="status"></p><p id="page-title" hidden></p>
+<div class="actions"><button id="manage">管理浏览器</button><button id="pause" class="secondary">暂停连接</button><button id="retry" hidden>重新接入</button></div>
+<footer><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 7V5a4 4 0 0 1 8 0v2M3 7h10v7H3z"/></svg>关闭弹窗，浏览器连接继续保持</footer>
+</main><script src="join.js"></script></body></html>

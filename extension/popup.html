@@ -1,0 +1,4 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Edge Agent · 管理连接</title><link rel="stylesheet" href="popup.css"></head>
+<body><main><header><img src="icons/icon48.png" width="42" height="42"><div><h1>Edge Agent</h1><p>浏览器连接管理</p></div></header>
+<section class="card"><div class="line"><strong id="status">正在读取状态…</strong><span id="badge">…</span></div><p id="description">点击工具栏图标即可加入当前网页。</p><div class="actions"><button id="resume">恢复连接</button><button id="pause" class="secondary">暂停连接</button></div><p id="error" role="status"></p></section>
+<section class="card"><h2>浏览器中的标签页</h2><div id="tabs"></div></section><footer>普通断线自动恢复；主动暂停后保持关闭。</footer></main><script src="popup.js"></script></body></html>
