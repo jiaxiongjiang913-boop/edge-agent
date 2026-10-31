@@ -35,7 +35,7 @@ async function join(explicit=false){
 }
 async function initialize(){
   const manifest=chrome.runtime.getManifest();
-  if(manifest.version!=='0.3.0'||!manifest.permissions?.includes('nativeMessaging')){
+  if(!manifest.permissions?.includes('nativeMessaging')){
     const saved=await chrome.storage.local.get('autoUpgradeAttemptedAt');
     if(saved.autoUpgradeAttemptedAt&&Date.now()-saved.autoUpgradeAttemptedAt<30000){
       setPhase('error','扩展更新尚未完成','请在扩展管理页重新加载 Edge Agent。');return;

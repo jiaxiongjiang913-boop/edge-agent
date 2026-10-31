@@ -11,7 +11,7 @@ import time
 import uuid
 from aiohttp import web, WSMsgType
 
-VERSION = '0.3.0'
+VERSION = '0.4.0'
 DEFAULT_ROOT = Path(__file__).resolve().parent
 OPS = {'snapshot', 'fill', 'select', 'click', 'eval', 'screenshot', 'navigate', 'new_tab', 'activate', 'close_tab'}
 

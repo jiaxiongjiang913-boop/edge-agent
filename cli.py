@@ -34,7 +34,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description='Edge Agent 脚本控制')
     p.add_argument('--root', type=Path, default=ROOT)
     sub = p.add_subparsers(dest='op', required=True)
-    for name in ('status', 'tabs', 'stop'):
+    for name in ('status', 'tabs', 'stop', 'start'):
         sub.add_parser(name)
     new = sub.add_parser('new-tab')
     new.add_argument('--url', default='about:blank')
@@ -61,7 +61,11 @@ def main(argv=None):
             s.add_argument('--url', required=True)
     a = p.parse_args(argv)
     try:
-        if a.op in ('status', 'tabs'):
+        if a.op == 'start':
+            import browser_api
+            browser_api.ROOT = a.root.resolve()
+            result = browser_api.start()
+        elif a.op in ('status', 'tabs'):
             result = request('/api/'+a.op, root=a.root)
         elif a.op == 'stop':
             result = request('/api/shutdown', {}, root=a.root)
@@ -73,14 +77,12 @@ def main(argv=None):
             result = request('/api/command', {'tab_id': getattr(a, 'tab', 0), 'op': a.op.replace('-', '_'), 'args': args, 'timeout': a.timeout}, root=a.root)
             if a.op == 'screenshot':
                 target = a.output.resolve()
-                if target.drive.upper() == 'C:':
-                    raise ValueError('截图请保存到 E 盘或用户指定的数据盘')
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(base64.b64decode(result['result']['data'], validate=True))
                 result = {'ok': True, 'path': str(target)}
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
-    except (ValueError, OSError, KeyError) as exc:
+    except (ValueError, OSError, KeyError, RuntimeError) as exc:
         print(json.dumps({'ok': False, 'error': str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1
 

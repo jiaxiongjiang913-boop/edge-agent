@@ -10,7 +10,6 @@ import subprocess
 import sys
 import time
 from urllib.request import urlopen
-import webbrowser
 from server import prepare
 
 ROOT = Path(__file__).resolve().parent
@@ -90,10 +89,27 @@ def ensure_service(root=ROOT, port=None):
         raise RuntimeError('本地服务启动超时，请重试')
 
 
+def find_edge():
+    for key in ('PROGRAMFILES', 'PROGRAMFILES(X86)', 'LOCALAPPDATA'):
+        base = os.environ.get(key)
+        if base:
+            executable = Path(base) / 'Microsoft' / 'Edge' / 'Application' / 'msedge.exe'
+            if executable.is_file():
+                return executable
+    raise RuntimeError('未安装 Microsoft Edge。请从 https://www.microsoft.com/edge/download 安装后重试。')
+
+
+def open_dashboard(root=ROOT):
+    edge = find_edge()
+    config = json.loads((Path(root) / 'runtime' / 'config.json').read_text(encoding='utf-8'))
+    subprocess.Popen([str(edge), f'http://127.0.0.1:{config["port"]}/'],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def main():
+    find_edge()
     ensure_service()
-    config = json.loads((ROOT / 'runtime' / 'config.json').read_text(encoding='utf-8'))
-    webbrowser.open(f'http://127.0.0.1:{config["port"]}/')
+    open_dashboard()
 
 
 if __name__ == '__main__':

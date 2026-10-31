@@ -1,23 +1,28 @@
 # Edge Agent
 
-通过浏览器扩展，把当前已登录的 Microsoft Edge 接入本机脚本。包含 Manifest V3 扩展、Python 本地服务、按需启动组件、命令行工具和可选的 Codex 技能。迁移版基于 Edge Agent 0.3.0。
+当前正式版 **0.4.0**。以本机当前可用的 Edge Agent 功能为基础，保留整个浏览器接入、按需启动、自动重连与命令行操作，增加通用 Agent 安装流程及标准 stdio MCP 接口。包含扩展、本地服务、13 个 MCP 工具、CLI、安装脚本和可选技能。
+
+**给豆包工作、Kimi、Claude、Gemini 或其他 Agent 安装：先让它读取 [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md)。** 能执行本地命令或连接本机 stdio MCP 的客户端可以接入。具体能力以客户端为准，云端聊天或沙盒本身不能控制用户电脑的 Edge。
 
 ## 在另一台 Windows 电脑安装
 
 1. 登录有权访问此私人仓库的 GitHub 账号，用 Git 克隆，或在仓库页面选择 **Code → Download ZIP** 并解压。将目录放到长期保留的位置，例如 `E:\Tools\EdgeAgent`。不要直接在压缩包里运行。
-2. 安装 Python 3.10 或更新版本。双击 **Install.cmd**，它会在项目内创建 `.venv` 并安装 `requirements.txt`。也可以在 PowerShell 中指定已安装的解释器：
+2. 确认已安装 **Microsoft Edge**。缺少时安装器会提示并停止，不会自动下载。按需访问 [Edge 官方下载](https://www.microsoft.com/edge/download)，或执行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\Download-Edge.ps1 -Install`，从微软下载并校验安装器签名后安装。
+3. 安装 Python 3.11 或更新版本。双击 **Install.cmd**，它会在项目内创建 `.venv` 并安装 `requirements.txt`。也可以在 PowerShell 中指定已安装的解释器：
 
    ```powershell
    .\Install.ps1 -PythonPath 'E:\Python\python.exe'
    ```
 
-3. 按安装脚本提示打开 `edge://extensions`，启用“开发人员模式”，点击“加载解压缩的扩展”，选择项目内的 **extension** 文件夹。
-4. 在扩展卡片中复制 **Edge Agent 的 ID**，粘贴回安装窗口。脚本只为当前 Windows 用户注册本机启动组件，无需管理员权限。新路径或新电脑的扩展 ID 可能不同，要使用实际显示的 ID。
-5. 把扩展固定到工具栏并点击图标。首次连接会在此电脑生成新的随机配对凭据；显示“浏览器已连接”后即可使用。浏览器账号由你在新电脑自行登录。
+4. 按安装脚本提示打开 `edge://extensions`，启用“开发人员模式”，点击“加载解压缩的扩展”，选择项目内的 **extension** 文件夹。
+5. 在扩展卡片中复制 **Edge Agent 的 ID**，粘贴回安装窗口。脚本只为当前 Windows 用户注册本机启动组件，无需管理员权限。新路径或新电脑的扩展 ID 可能不同，要使用实际显示的 ID。
+6. 把扩展固定到工具栏并点击图标。首次连接会在此电脑生成新的随机配对凭据；显示“浏览器已连接”后即可使用。浏览器账号由你在新电脑自行登录。
 
 日常只需点击扩展图标，无需开机自启。维护时可用 **Start.cmd** 打开本地管理页，或用 **Stop.cmd** 主动停止服务。管理页为 `http://127.0.0.1:18765/`。服务固定使用本机端口 18765；如端口被其他程序占用，先解决冲突。
 
-`Install.ps1 -ExtensionId <扩展ID>` 可跳过交互输入。依赖已安装时可附加 `-SkipDependencies`。安装需要联网下载 Python 依赖。
+`Install.ps1 -PrepareOnly` 可先完成环境准备并生成通用 MCP 配置；取得扩展 ID 后再用 `-ExtensionId <扩展ID> -SkipDependencies` 完成注册。安装需要联网下载 Python 依赖。
+
+更新现有安装时，先保存浏览器中的工作并主动停止旧服务，将新文件放回原安装目录、运行安装程序，然后在扩展管理页重新加载扩展。一次仅保留一套活动安装使用端口 18765；不要把旧的 `runtime/` 或 `native/` 上传到仓库。原电脑当前正在使用的版本不会因下载新版而被后台替换。
 
 ## 命令行与 Codex 技能
 
@@ -25,11 +30,14 @@
 
 ```powershell
 .\.venv\Scripts\python.exe -B cli.py status
+.\.venv\Scripts\python.exe -B cli.py start
 .\.venv\Scripts\python.exe -B cli.py tabs
 .\.venv\Scripts\python.exe -B cli.py snapshot --tab 123
 ```
 
-支持 `new-tab`、`activate`、`close-tab`、`fill`、`select`、`click`、`eval`、`screenshot`、`navigate`；参数见 `cli.py --help` 及子命令的 `--help`。标签页 ID 以 `tabs` 返回值为准。迁移版保留截图不得写入 C 盘的行为，选择其他数据盘的输出路径。
+支持 `new-tab`、`activate`、`close-tab`、`fill`、`select`、`click`、`eval`、`screenshot`、`navigate`；参数见 `cli.py --help` 及子命令的 `--help`。标签页 ID 以 `tabs` 返回值为准。截图选择用户要求的数据盘输出路径。
+
+通用 MCP 配置在 `runtime/mcp-config.local.json`，将其中 `mcpServers.edge-agent` 合并到客户端即可，不能用它覆盖已有服务配置。该文件只含本机路径与编码选项，不含浏览器配对令牌。MCP 服务使用官方 Python SDK，支持当前和旧版握手；客户端配置与接入说明见 [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md)。
 
 可选安装 Codex 技能（默认写入当前电脑的 Codex 技能目录）：
 
