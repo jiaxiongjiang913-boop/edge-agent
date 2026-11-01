@@ -1,6 +1,6 @@
 # 给任意 Agent 的安装与接入说明
 
-本文件适用于豆包工作、Kimi、Claude、Gemini 及其他 Agent 的本地工作模式。将本项目文件夹授权给 Agent，要求它先读取本文件，再执行安装。安装不需要调用任何特定品牌的模型 API，也不要求 Codex。
+本文件适用于 Codex、豆包工作、Kimi、Claude、Gemini、DeepSeek Harness 等 Agent 的本地工作模式。用户将公开仓库网址和安装指令发送给 Agent 后，Agent 先读取本文件，再下载并执行安装。安装不需要调用任何特定品牌的模型 API，也不要求 Codex。
 
 ## 先判断工作环境
 
@@ -12,7 +12,7 @@
 
 ## 安装
 
-1. 确认用户已把私人仓库下载或克隆到这台电脑。私人仓库访问应由用户在 GitHub 完成登录，不在提示词或脚本里填写账号令牌。项目保持在长期使用的位置；工作目录按当前电脑用户要求选择数据盘。
+1. 从公开仓库 https://github.com/jiaxiongjiang913-boop/edge-agent 获取项目。优先下载 https://github.com/jiaxiongjiang913-boop/edge-agent/releases/latest/download/EdgeAgent-portable.zip 并解压，也可通过 Git 克隆。无需 GitHub 登录或访问令牌，不要求用户先手动下载。若项目已在本机，直接使用该目录。项目保持在长期使用的位置；工作目录按当前电脑用户要求选择数据盘。
 2. 在项目目录执行环境准备。将解释器替换为当前电脑已有的 Python 3.11 或更新版本，遵循当前电脑的环境规则：
 
    ```powershell

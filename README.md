@@ -1,12 +1,14 @@
 # Edge Agent
 
-当前正式版 **0.4.0**。以本机当前可用的 Edge Agent 功能为基础，保留整个浏览器接入、按需启动、自动重连与命令行操作，增加通用 Agent 安装流程及标准 stdio MCP 接口。包含扩展、本地服务、13 个 MCP 工具、CLI、安装脚本和可选技能。
+当前正式版 **0.4.1**。以本机当前可用的 Edge Agent 功能为基础，保留整个浏览器接入、按需启动、自动重连与命令行操作，增加通用 Agent 安装流程及标准 stdio MCP 接口。包含扩展、本地服务、13 个 MCP 工具、CLI、安装脚本和可选技能。
 
-**给豆包工作、Kimi、Claude、Gemini 或其他 Agent 安装：先让它读取 [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md)。** 能执行本地命令或连接本机 stdio MCP 的客户端可以接入。具体能力以客户端为准，云端聊天或沙盒本身不能控制用户电脑的 Edge。
+**给 Codex、豆包工作、Kimi、Claude、Gemini、DeepSeek Harness 等 Agent 安装：将本仓库网址和安装指令发送给它的工作 / Agent 模式，要求先读取 [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md)。** 能执行本地命令或连接本机 stdio MCP 的客户端可以接入。具体能力以客户端为准，云端聊天或沙盒本身不能控制用户电脑的 Edge。
+
+公开仓库：[edge-agent](https://github.com/jiaxiongjiang913-boop/edge-agent)。[下载最新安装包](https://github.com/jiaxiongjiang913-boop/edge-agent/releases/latest/download/EdgeAgent-portable.zip)，无需登录 GitHub。
 
 ## 在另一台 Windows 电脑安装
 
-1. 登录有权访问此私人仓库的 GitHub 账号，用 Git 克隆，或在仓库页面选择 **Code → Download ZIP** 并解压。将目录放到长期保留的位置，例如 `E:\Tools\EdgeAgent`。不要直接在压缩包里运行。
+1. 下载上方最新安装包并解压，也可用 Git 克隆公开仓库，或在仓库页面选择 **Code → Download ZIP**。无需 GitHub 账号或访问令牌。将目录放到长期保留的位置，例如 `E:\Tools\EdgeAgent`。不要直接在压缩包里运行。
 2. 确认已安装 **Microsoft Edge**。缺少时安装器会提示并停止，不会自动下载。按需访问 [Edge 官方下载](https://www.microsoft.com/edge/download)，或执行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\Download-Edge.ps1 -Install`，从微软下载并校验安装器签名后安装。
 3. 安装 Python 3.11 或更新版本。双击 **Install.cmd**，它会在项目内创建 `.venv` 并安装 `requirements.txt`。也可以在 PowerShell 中指定已安装的解释器：
 
@@ -52,7 +54,7 @@
 - 仓库只包含源码、通用图标、技能、安装说明和测试。未包含原电脑的用户名、个人目录、邮箱、浏览器配置、Cookie、登录状态、历史标签、日志、截图或旧 Git 历史。提交作者使用中性名称和邮箱。
 - `runtime/`、`native/`、`.venv/`、`extension/connection.json`、`*.local.json` 等本机生成文件已忽略。不要使用 `git add -f` 上传这些文件，也不要直接把整个使用中的项目目录压缩分享。
 - 新电脑会独立生成令牌与启动配置，无需从原电脑复制它们。原电脑的安装和连接不受此仓库影响。
-- GitHub 私人仓库的地址及所有者仍会显示 GitHub 账号名。这不等同于匿名托管；源码和提交作者信息的去标识化不改变仓库所属账号。
+- 本仓库公开提供源码和安装包，地址及所有者会显示 GitHub 账号名。源码和提交作者信息的去标识化不改变仓库所属账号。
 - 扩展接入后可以控制该浏览器的全部标签页，并可在普通网页执行脚本。只将此通道用于你授权的任务；验证码由你完成。服务仅绑定 `127.0.0.1`，不需要开放路由器或防火墙端口。
 
 移动已安装的项目目录后，应重建 `.venv` 并重新运行安装程序；Python 虚拟环境不适合直接搬家。重新登记扩展 ID，并重新安装技能或更新它的本机路径配置。多台电脑分别安装。
