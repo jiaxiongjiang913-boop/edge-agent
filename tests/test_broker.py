@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import importlib.util
 from pathlib import Path
 import sys
@@ -103,6 +104,41 @@ class BrokerTests(unittest.IsolatedAsyncioTestCase):
         result = await ws.receive()
         self.assertEqual(result.type, WSMsgType.CLOSE)
         self.assertIsNone(self.b.ws)
+
+    async def test_download_stream_saves_binary_to_requested_directory_without_overwrite(self):
+        ws = await self.extension()
+        folder = Path(self.tmp.name) / 'requested'
+        folder.mkdir()
+        (folder / 'file.bin').write_bytes(b'keep existing')
+        task = asyncio.create_task(self.b.command(7, 'download', {'directory': str(folder)}))
+        command = await ws.receive_json()
+        transfer_id = command['id']
+        self.assertEqual(command['args']['transfer_id'], transfer_id)
+        await ws.send_json({'type': 'download_begin', 'id': transfer_id, 'filename': 'file.bin'})
+        data = bytes(range(256)) * 100
+        await ws.send_json({'type': 'download_chunk', 'id': transfer_id,
+                            'data': base64.b64encode(data).decode(), 'base64': True})
+        await ws.send_json({'type': 'result', 'id': transfer_id, 'ok': True, 'result': {'http_status': 200}})
+        result = await task
+        self.assertEqual(result['state'], 'complete')
+        self.assertEqual(Path(result['filename']).read_bytes(), data)
+        self.assertEqual(Path(result['filename']).parent, folder)
+        self.assertEqual((folder / 'file.bin').read_bytes(), b'keep existing')
+        self.assertEqual((await self.b.command(7, 'download_status', {'download_id': transfer_id}))['bytes_received'], len(data))
+        with self.assertRaises(ValueError):
+            await self.b.command(8, 'download_status', {'download_id': transfer_id})
+
+    async def test_interrupted_download_removes_partial_file_without_replay(self):
+        ws = await self.extension()
+        folder = Path(self.tmp.name) / 'requested'
+        task = asyncio.create_task(self.b.command(7, 'download', {'directory': str(folder)}, timeout=.1))
+        command = await ws.receive_json()
+        await ws.send_json({'type': 'download_begin', 'id': command['id'], 'filename': '../file.bin'})
+        await ws.send_json({'type': 'download_chunk', 'id': command['id'], 'data': 'partial', 'base64': False})
+        with self.assertRaises(TimeoutError):
+            await task
+        self.assertFalse(list(folder.iterdir()))
+        self.assertEqual(self.b.downloads[command['id']].state, 'interrupted')
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

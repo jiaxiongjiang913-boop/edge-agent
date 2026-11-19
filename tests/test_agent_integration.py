@@ -37,7 +37,7 @@ def test_stdio_handshake_and_browser_operations(tmp_path, mode):
             })
             async with Client(process, mode=mode, read_timeout_seconds=20) as client:
                 listing = await client.list_tools()
-                assert len(listing.tools) == 13
+                assert len(listing.tools) == 19
                 assert {'edge_start', 'edge_tabs', 'edge_snapshot', 'edge_screenshot'} <= {t.name for t in listing.tools}
                 result = await client.call_tool('edge_status')
                 data = json.loads(result.content[0].text)
@@ -53,6 +53,22 @@ def test_stdio_handshake_and_browser_operations(tmp_path, mode):
                 assert not (await pending).is_error
                 invalid = await client.call_tool('edge_click', {'tab_id': 7, 'selector': '#a', 'text': 'A'})
                 assert invalid.is_error
+                template = await client.call_tool('edge_workflow', {'name': 'reference-check'})
+                assert '待核查' in json.loads(template.content[0].text)['instructions']
+                pending = asyncio.create_task(client.call_tool('edge_wait', {'tab_id': 7, 'selector': '#done', 'timeout': 1}))
+                command = await asyncio.wait_for(ws.receive_json(), 10)
+                assert command['op'] == 'wait'
+                assert command['args']['wait_timeout'] == 1
+                await ws.send_json({'type': 'result', 'id': command['id'], 'ok': True, 'result': {'matched': True}})
+                assert not (await pending).is_error
+                selected_file = tmp_path / 'selected.txt'
+                selected_file.write_text('fixture', encoding='utf-8')
+                pending = asyncio.create_task(client.call_tool('edge_upload', {'tab_id': 7, 'selector': '#file', 'files': [str(selected_file)]}))
+                command = await asyncio.wait_for(ws.receive_json(), 10)
+                assert command['op'] == 'upload'
+                assert command['args']['files'] == [str(selected_file.resolve())]
+                await ws.send_json({'type': 'result', 'id': command['id'], 'ok': True, 'result': {'uploaded': True}})
+                assert not (await pending).is_error
                 screenshot = asyncio.create_task(client.call_tool('edge_screenshot', {'tab_id': 7}))
                 command = await asyncio.wait_for(ws.receive_json(), 10)
                 assert command['op'] == 'screenshot'
@@ -72,6 +88,9 @@ def test_generated_mcp_config_has_local_paths_but_no_pairing_secret(tmp_path):
     assert entry['command'] == str(Path(sys.executable).resolve())
     assert entry['args'] == ['-B', str(tmp_path / 'mcp_server.py')]
     assert 'token' not in json.dumps(config).lower()
+    import tomllib
+    codex = tomllib.loads((tmp_path / 'runtime/mcp-codex.local.toml').read_text(encoding='utf-8'))
+    assert codex['mcp_servers']['edge-agent'] == entry
 
 
 def test_installer_prompts_for_missing_edge_before_creating_environment(tmp_path):

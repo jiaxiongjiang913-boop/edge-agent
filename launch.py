@@ -11,6 +11,7 @@ import sys
 import time
 from urllib.request import urlopen
 from server import prepare
+from edge_browser import find_edge
 
 ROOT = Path(__file__).resolve().parent
 
@@ -87,16 +88,6 @@ def ensure_service(root=ROOT, port=None):
                 raise RuntimeError('本地服务启动失败，请检查服务日志')
             time.sleep(.15)
         raise RuntimeError('本地服务启动超时，请重试')
-
-
-def find_edge():
-    for key in ('PROGRAMFILES', 'PROGRAMFILES(X86)', 'LOCALAPPDATA'):
-        base = os.environ.get(key)
-        if base:
-            executable = Path(base) / 'Microsoft' / 'Edge' / 'Application' / 'msedge.exe'
-            if executable.is_file():
-                return executable
-    raise RuntimeError('未安装 Microsoft Edge。请从 https://www.microsoft.com/edge/download 安装后重试。')
 
 
 def open_dashboard(root=ROOT):

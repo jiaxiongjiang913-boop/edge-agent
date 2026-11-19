@@ -15,6 +15,7 @@ description: 通过已安装的本机 Edge Agent 扩展控制已登录的 Edge �
 
 ```text
 edge_agent.py status
+edge_agent.py doctor
 edge_agent.py start
 edge_agent.py tabs
 edge_agent.py new-tab --url https://example.com
@@ -27,9 +28,15 @@ edge_agent.py eval --tab 123 --file <脚本路径>
 edge_agent.py screenshot --tab 123 --output <图片路径>
 edge_agent.py navigate --tab 123 --url https://example.com
 edge_agent.py close-tab --tab 123
+edge_agent.py wait --tab 123 --selector '#result' --state visible --timeout 20
+edge_agent.py upload --tab 123 --selector 'input[type=file]' --files <用户选定文件>
+edge_agent.py download --tab 123 --selector 'a#download' --directory <数据盘目录>
+edge_agent.py workflow reference-check
 ```
 
 先读取页面或标签列表，再根据真实状态操作。页面定位可用 `--selector` 替代 `--label` 或 `--text`；匹配不唯一时缩小范围，不猜测。`eval` 在网页上下文运行 JavaScript；浏览器内部页面仅支持标签管理。验证码和人工身份确认交给用户。超时可能已产生副作用，先核查页面，不自动重放操作。
+
+0.5 的快照 `elements` 含可访问元素 `ref`，可用 `--ref` 定位封装组件中的控件；页面变化后重新读取编号。同源 iframe 使用 `--frame`，开放 Shadow DOM 可用 `>>>`；跨域/跨进程 iframe 不保证枚举完整。快照默认省略表单值，需要时显式 `--include-values`；正文仍可能含私人内容。科研模板由当前 Agent 执行，保留真实来源，证据不足记为待核查。
 
 连接只是执行通道，具体操作仍以当前用户请求为准。用户主动暂停时保持暂停。聊天结束、任务结束或脚本退出不代表要断开连接，不在清理阶段调用 `stop`、暂停扩展或关闭浏览器。仅在用户明确要求停止时使用对应入口。
 

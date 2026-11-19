@@ -43,6 +43,8 @@
 
    `connected=true` 且 `browser_scope=true` 才表示完成浏览器连接。若未连接，报告具体缺少哪一步，不用“安装成功”代替连接结果。
 
+6. 运行 `.\.venv\Scripts\python.exe -B cli.py doctor`。逐项处理 `needs_attention`；不要把本机路径、配对文件或浏览器标签复制到公开的故障报告。更新到 0.5 后重新加载扩展并接入，本版沿用已有权限。
+
 双击 `Install.cmd` 则运行交互安装，无需先配置任何 Agent。
 
 ## 选择接入方式
@@ -64,7 +66,9 @@
 | Gemini CLI | 将 `mcpServers` 条目合并到 `settings.json`，然后查看 `/mcp` 连接状态。 |
 | 其他本地 MCP 客户端 | 选择 stdio 类型；command 使用 JSON 的 `command`，args 使用 `args`；按客户端要求导入。 |
 
-MCP 暴露 13 个工具：`edge_status`、`edge_start`、`edge_tabs`、`edge_snapshot`、`edge_click`、`edge_fill`、`edge_select`、`edge_navigate`、`edge_new_tab`、`edge_activate`、`edge_close_tab`、`edge_evaluate`、`edge_screenshot`。MCP 启动进程时不会自动连接浏览器；由当前已授权任务调用 `edge_start`。截图直接以图片返回。
+MCP 暴露 19 个工具：原有 13 个浏览器工具，以及 `edge_doctor`、`edge_wait`、`edge_upload`、`edge_download`、`edge_download_status`、`edge_workflow`。MCP 启动进程时不会自动连接浏览器；由当前已授权任务调用 `edge_start`。截图直接以图片返回。Codex 可合并 `runtime/mcp-codex.local.toml`，其他客户端使用通用 JSON；已有配置不能被整个覆盖。
+
+新能力与示例见 [README.md](README.md)，客户端验证范围见 [COMPATIBILITY.md](COMPATIBILITY.md)。科研任务先调用 `edge_workflow` 读取 `literature-search` 或 `reference-check`，再由当前 Agent 执行模板。遇动态控件优先用最新快照中的 `ref`；上传仅传用户选定的本机文件，下载明确指定数据盘目录并检查完成状态。等待超时不重放写操作。
 
 ## 操作与隐私
 

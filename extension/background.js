@@ -1,4 +1,4 @@
-importScripts('page-tools.js');
+importScripts('page-tools.js','automation.js');
 let enabled=true,browserJoined=false,authenticated=false,ws=null,keepalive=null,reconnectTimer=null;
 let reconnectDelay=1000,config=null,lastError='',connecting=null,pausing=false;
 let nativeStarting=null,joining=null,joinGeneration=0;
@@ -6,7 +6,7 @@ const tabs=new Map(),attached=new Set(),queues=new Map();
 const alarmName='edge-agent-reconnect';
 const normalURL=url=>/^https?:\/\//.test(url||'');
 const debug=(id,method,params={})=>chrome.debugger.sendCommand({tabId:id},method,params);
-function state(){return {type:'state',enabled,browser_scope:browserJoined,tabs:Array.from(tabs.values())};}
+function state(){return {type:'state',enabled,browser_scope:browserJoined,extension_version:chrome.runtime.getManifest().version,tabs:Array.from(tabs.values())};}
 function sendState(){if(authenticated&&ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify(state()));}
 async function updateBadges(){
   const text=!browserJoined?'':!enabled?'Ⅱ':authenticated?'ON':'…';
@@ -127,6 +127,9 @@ async function execute(id,op,args){
   const tab=await chrome.tabs.get(id);
   if(!normalURL(tab.url))throw new Error('浏览器已接入，但此内部页面不支持网页脚本；可以切换、新建或关闭标签页');
   await ensureAttached(id);
+  if(op==='wait')return waitForElement(id,args);
+  if(op==='upload')return uploadFiles(id,args);
+  if(op==='download')return downloadFile(id,args);
   if(op==='eval')return evaluate(id,String(args.expression));
   if(op==='screenshot')return debug(id,'Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   if(op==='navigate'){
@@ -134,7 +137,15 @@ async function execute(id,op,args){
     return debug(id,'Page.navigate',{url:args.url});
   }
   if(!['snapshot','fill','select','click'].includes(op))throw new Error('不支持的命令');
-  return evaluate(id,'('+edgePageTool.toString()+')('+JSON.stringify(op)+','+JSON.stringify(args)+')');
+  if(op==='snapshot'){
+    const result=await evaluate(id,pageExpression(op,args));
+    result.elements=await accessibleElements(id);
+    if(!args.include_values)result.values_included=false;
+    return result;
+  }
+  if(op==='click')return clickElement(id,args);
+  if(args.ref)return withElement(id,args,o=>elementCall(id,o,op,args));
+  return evaluate(id,pageExpression(op,args));
 }
 function enqueue(message,socket){
   const id=message.tab_id,previous=queues.get(id)||Promise.resolve();

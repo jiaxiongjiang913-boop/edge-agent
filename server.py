@@ -10,10 +10,12 @@ import secrets
 import time
 import uuid
 from aiohttp import web, WSMsgType
+from version import VERSION
+from transfers import DownloadTransfer
 
-VERSION = '0.4.1'
 DEFAULT_ROOT = Path(__file__).resolve().parent
-OPS = {'snapshot', 'fill', 'select', 'click', 'eval', 'screenshot', 'navigate', 'new_tab', 'activate', 'close_tab'}
+OPS = {'snapshot', 'fill', 'select', 'click', 'eval', 'screenshot', 'navigate', 'new_tab', 'activate', 'close_tab',
+       'wait', 'upload', 'download', 'download_status'}
 
 def prepare(root, port=18765):
     root = Path(root).resolve()
@@ -44,15 +46,18 @@ class Broker:
         self.tabs = {}
         self.enabled = False
         self.browser_scope = False
+        self.extension_version = None
         self.pending = {}
         self.locks = {}
+        self.downloads = {}
         self.started = time.time()
         self.stop = asyncio.Event()
 
     def status(self):
         return {'version': VERSION, 'pid': os.getpid(), 'running': True,
                 'connected': self.ws is not None and not self.ws.closed,
-                'enabled': self.enabled, 'browser_scope': self.browser_scope, 'tabs': list(self.tabs.values()),
+                'enabled': self.enabled, 'browser_scope': self.browser_scope, 'extension_version': self.extension_version,
+                'tabs': list(self.tabs.values()),
                 'pending': len(self.pending), 'uptime': int(time.time()-self.started)}
 
     def disconnected(self, ws):
@@ -62,10 +67,14 @@ class Broker:
         self.tabs = {}
         self.enabled = False
         self.browser_scope = False
+        self.extension_version = None
         for future in list(self.pending.values()):
             if not future.done():
                 future.set_exception(ConnectionError('扩展连接已断开；命令没有自动重试'))
         self.pending.clear()
+        for transfer in self.downloads.values():
+            if transfer.state in ('pending', 'in_progress'):
+                transfer.abort()
 
     async def command(self, tab_id, op, args, timeout=30):
         if op not in OPS:
@@ -73,6 +82,11 @@ class Broker:
         tab_id = int(tab_id)
         if not isinstance(args, dict):
             raise ValueError('args 必须为对象')
+        if op == 'download_status':
+            transfer = self.downloads.get(str(args.get('download_id', '')))
+            if not transfer or transfer.tab_id != tab_id:
+                raise ValueError('此下载不属于当前服务在此标签页创建的任务')
+            return transfer.status()
         lock = self.locks.setdefault(tab_id, asyncio.Lock())
         async with lock:
             if not self.ws or self.ws.closed or not self.enabled:
@@ -84,14 +98,23 @@ class Broker:
             ws = self.ws
             request_id = uuid.uuid4().hex
             future = asyncio.get_running_loop().create_future()
+            transfer = DownloadTransfer(args['directory'], tab_id, request_id) if op == 'download' else None
             self.pending[request_id] = future
+            if transfer:
+                self.downloads[request_id] = transfer
+                args = {**args, 'transfer_id': request_id}
             try:
                 await ws.send_json({'type': 'command', 'id': request_id,
                                     'tab_id': tab_id, 'op': op, 'args': args})
-                return await asyncio.wait_for(future, timeout=max(.05, min(float(timeout), 120)))
+                result = await asyncio.wait_for(future, timeout=max(.05, min(float(timeout), 120)))
+                return {**transfer.finish(), 'http_status': result.get('http_status')} if transfer else result
             except asyncio.TimeoutError:
+                if transfer:
+                    raise TimeoutError('下载超时，部分文件已清理；下载 ID ' + request_id + '；没有自动重试') from None
                 raise TimeoutError('命令等待超时，可能已执行；没有自动重试，请先核查页面') from None
             finally:
+                if transfer and transfer.state != 'complete':
+                    transfer.abort()
                 self.pending.pop(request_id, None)
                 if not future.done():
                     future.cancel()
@@ -118,7 +141,7 @@ async def boundary(request, handler):
             raise web.HTTPUnauthorized(text='未授权')
     try:
         response = await handler(request)
-    except (ValueError, TypeError, KeyError) as exc:
+    except (ValueError, TypeError, KeyError, OSError) as exc:
         response = web.json_response({'ok': False, 'error': str(exc)}, status=400)
     except ConnectionError as exc:
         response = web.json_response({'ok': False, 'error': str(exc)}, status=503)
@@ -176,6 +199,7 @@ async def websocket(request):
             elif kind == 'state':
                 b.enabled = data.get('enabled') is True
                 b.browser_scope = data.get('browser_scope') is True
+                b.extension_version = str(data.get('extension_version', 'unknown'))[:32]
                 b.tabs = {int(t['id']): {'id': int(t['id']), 'title': str(t.get('title', ''))[:500], 'url': str(t.get('url', ''))[:4000],
                                        'windowId': t.get('windowId'), 'index': t.get('index'), 'active': bool(t.get('active')),
                                        'controllable': bool(t.get('controllable'))}
@@ -187,6 +211,18 @@ async def websocket(request):
                         future.set_result(data.get('result'))
                     else:
                         future.set_exception(ValueError(str(data.get('error', '扩展命令失败'))))
+            elif kind in ('download_begin', 'download_chunk'):
+                transfer = b.downloads.get(str(data.get('id', '')))
+                future = b.pending.get(data.get('id'))
+                if transfer and future and not future.done():
+                    try:
+                        if kind == 'download_begin':
+                            transfer.begin(data.get('filename', 'download.bin'))
+                        else:
+                            transfer.chunk(data['data'], data.get('base64') is True)
+                    except (OSError, ValueError, KeyError) as exc:
+                        transfer.abort()
+                        future.set_exception(ValueError('下载写入失败：' + str(exc)))
     except (asyncio.TimeoutError, ValueError, TypeError, KeyError, ConnectionError):
         await ws.close(code=1008, message=b'invalid message')
     finally:

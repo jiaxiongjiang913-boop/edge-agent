@@ -16,6 +16,7 @@ if (-not $edge) {
     throw 'Edge is missing. No browser was downloaded or installed automatically.'
 }
 Write-Host ('Using Microsoft Edge: ' + $edge)
+Write-Host '[1/4] Checking Python and the local environment...'
 $venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $venvPython)) {
     if ($PythonPath) {
@@ -35,6 +36,7 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
 & $venvPython -B -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)'
 if ($LASTEXITCODE -ne 0) { throw 'Recreate .venv with Python 3.11 or newer.' }
 if (-not $SkipDependencies) {
+    Write-Host '[2/4] Installing dependencies...'
     & $venvPython -B -m pip install --disable-pip-version-check -r (Join-Path $PSScriptRoot 'requirements.txt')
     if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
 }
@@ -47,12 +49,25 @@ if ($PrepareOnly) {
     exit 0
 }
 Write-Host 'In Edge, open edge://extensions and enable Developer mode.'
+Write-Host '[3/4] Loading the extension and registering the native launcher...'
 Write-Host 'Load unpacked, select this folder:'
 Write-Host (Join-Path $PSScriptRoot 'extension')
-if (-not $ExtensionId) { $ExtensionId = (Read-Host 'Paste the 32-character Edge Agent extension ID').Trim() }
+if (-not $ExtensionId) {
+    $nativeManifest = Join-Path $PSScriptRoot 'native\com.edge_agent.launcher.json'
+    if (Test-Path -LiteralPath $nativeManifest) {
+        try {
+            $savedOrigin = (Get-Content -LiteralPath $nativeManifest -Raw | ConvertFrom-Json).allowed_origins[0]
+            if ($savedOrigin -match '^chrome-extension://([a-p]{32})/$') { $ExtensionId = $Matches[1] }
+        } catch { Write-Host 'Existing registration could not be reused.' }
+    }
+    if (-not $ExtensionId) { $ExtensionId = (Read-Host 'Paste the 32-character Edge Agent extension ID').Trim() }
+}
 if ($ExtensionId -notmatch '^[a-p]{32}$') { throw 'Invalid extension ID.' }
 & $venvPython -B (Join-Path $PSScriptRoot 'install_native_host.py') --extension-id $ExtensionId
 if ($LASTEXITCODE -ne 0) { throw 'Native host registration failed.' }
 Write-Host 'Installed. Click the Edge Agent toolbar icon to connect.'
+Write-Host '[4/4] Files and registration are ready. Connection still needs to be checked.'
+Write-Host 'Reload the extension after an update, then reconnect from the toolbar icon.'
+Write-Host 'After connecting, run Check.cmd or: .venv\Scripts\python.exe -B cli.py doctor'
 Write-Host 'Universal MCP config: runtime\mcp-config.local.json. Merge into your agent client settings.'
 Write-Host 'Optional Codex skill: run .venv\Scripts\python.exe -B install_skill.py --destination <skills-directory>'

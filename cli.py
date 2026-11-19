@@ -34,21 +34,40 @@ def main(argv=None):
     p = argparse.ArgumentParser(description='Edge Agent 脚本控制')
     p.add_argument('--root', type=Path, default=ROOT)
     sub = p.add_subparsers(dest='op', required=True)
-    for name in ('status', 'tabs', 'stop', 'start'):
+    for name in ('status', 'tabs', 'stop', 'start', 'doctor'):
         sub.add_parser(name)
+    template = sub.add_parser('workflow')
+    template.add_argument('name', choices=('literature-search', 'reference-check'))
     new = sub.add_parser('new-tab')
     new.add_argument('--url', default='about:blank')
     new.add_argument('--timeout', type=float, default=30)
-    for name in ('snapshot', 'fill', 'select', 'click', 'eval', 'screenshot', 'navigate', 'activate', 'close-tab'):
+    for name in ('snapshot', 'fill', 'select', 'click', 'eval', 'screenshot', 'navigate', 'activate', 'close-tab',
+                 'wait', 'upload', 'download', 'download-status'):
         s = sub.add_parser(name)
         s.add_argument('--tab', type=int, required=True)
         s.add_argument('--timeout', type=float, default=30)
         if name == 'snapshot':
             s.add_argument('--max-length', type=int, default=10000)
-        if name in ('fill', 'select', 'click'):
-            targets = s.add_mutually_exclusive_group(required=True)
+            s.add_argument('--include-values', action='store_true')
+            s.add_argument('--frame', default='')
+        if name in ('fill', 'select', 'click', 'wait', 'upload', 'download'):
+            targets = s.add_mutually_exclusive_group(required=name != 'wait')
             targets.add_argument('--selector')
-            targets.add_argument('--text' if name == 'click' else '--label')
+            if name in ('click', 'wait'):
+                targets.add_argument('--text')
+            elif name in ('fill', 'select'):
+                targets.add_argument('--label')
+            targets.add_argument('--ref', type=int)
+            s.add_argument('--frame', default='')
+        if name == 'wait':
+            s.add_argument('--state', choices=('visible', 'hidden', 'attached', 'detached', 'enabled', 'ready'), default='visible')
+        if name == 'upload':
+            s.add_argument('--files', type=Path, nargs='+', required=True)
+        if name == 'download':
+            s.add_argument('--directory', type=Path, required=True)
+            s.set_defaults(timeout=60)
+        if name == 'download-status':
+            s.add_argument('--download-id', required=True)
         if name in ('fill', 'select'):
             s.add_argument('--value', required=True)
         if name == 'eval':
@@ -61,9 +80,23 @@ def main(argv=None):
             s.add_argument('--url', required=True)
     a = p.parse_args(argv)
     try:
-        if a.op == 'start':
-            import browser_api
-            browser_api.ROOT = a.root.resolve()
+        import browser_api
+        browser_api.ROOT = a.root.resolve()
+        if a.op == 'doctor':
+            from diagnostics import diagnose
+            result = diagnose(a.root)
+        elif a.op == 'workflow':
+            result = browser_api.workflow(a.name)
+        elif a.op == 'wait':
+            result = {'ok': True, 'result': browser_api.wait(a.tab, a.selector or '', a.text or '', a.ref, a.frame, a.state, a.timeout)}
+        elif a.op == 'upload':
+            result = {'ok': True, 'result': browser_api.upload(a.tab, a.files, a.selector or '', a.ref, a.frame)}
+        elif a.op == 'download':
+            result = {'ok': True, 'result': browser_api.download(a.tab, a.directory, a.selector or '', a.ref, a.frame, a.timeout)}
+        elif a.op == 'click':
+            args = browser_api.locate(selector=a.selector or '', text=a.text or '', ref=a.ref, frame=a.frame)
+            result = {'ok': True, 'result': browser_api.command(a.tab, 'click', args, timeout=a.timeout)}
+        elif a.op == 'start':
             result = browser_api.start()
         elif a.op in ('status', 'tabs'):
             result = request('/api/'+a.op, root=a.root)
@@ -81,7 +114,7 @@ def main(argv=None):
                 target.write_bytes(base64.b64decode(result['result']['data'], validate=True))
                 result = {'ok': True, 'path': str(target)}
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
+        return 2 if a.op == 'doctor' and not result['ready'] else 0
     except (ValueError, OSError, KeyError, RuntimeError) as exc:
         print(json.dumps({'ok': False, 'error': str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1
